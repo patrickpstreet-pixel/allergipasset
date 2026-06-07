@@ -4,83 +4,79 @@
 
 > *Ét scan. Én side. Rigtige handlinger, når det gælder.*
 
-Allergipasset gør alvorlig allergi let at forstå for alle voksne omkring barnet — et digitalt og printbart nød- og hverdagskort med allergier, instruktioner, medicin og kontaktinfo. Klar til skole, SFO, klub, bedsteforældre, legeaftaler, restauranter og fødselsdage.
+Allergipasset gør alvorlig allergi let at forstå for alle voksne omkring barnet — et digitalt og printbart nød- og hverdagskort med allergier, instruktioner, medicin og kontaktinfo.
 
 **[→ Åbn Allergipasset](https://patrickpstreet-pixel.github.io/allergipasset/)**
 
 ---
 
-## Hvad er Allergipasset?
+## Hvad er nyt i version 2.0?
 
-Allergipasset er en simpel webapp, der hjælper forældre med at oprette et klart og overskueligt allergipas til deres barn. Passet kan:
+### 👶 Flere børneprofiler
+Skift mellem profiler for søskende eller flere børn med ét klik. Profiler gemmes lokalt i browseren – ingen konto, ingen login.
 
-- Vises digitalt på telefon eller tablet
-- Printes som et kompakt nødkort
-- Deles som ren tekst via besked eller mail
-- Gemmes lokalt i browseren — ingen konto, ingen login, ingen data sendt nogen steder
+### 🎭 Tilstandstilstande – fire visninger
+Samme data, fire tilpassede kortvisninger:
 
-Ingen backend. Ingen database. Virker offline. Klar til GitHub Pages.
+| Tilstand | Til hvem | Hvad vises |
+|---|---|---|
+| 📋 **Pas** | Alle | Fuldt allergipas med alle detaljer |
+| 🎂 **Fødselsdag** | Andre forældre | "Emma kommer til din fødselsdag. Her er hvad hun ikke må få..." |
+| 🏫 **Skole/SFO** | Personale | Allergi, handlingsplan, medicin-lokation, kontakter |
+| 🍽️ **Restaurant** | Køkkenet | Store, tydelige allergener + krydsforureningsadvarsel |
 
----
+### 📱 Del via QR-kode og link
+Generer automatisk en QR-kode og et delingslink. Modtageren åbner passet i deres browser — ingen app, ingen konto. Passet er kodet direkte i URL'en, ingen backend nødvendig.
 
-## Funktioner i version 1
-
-| Funktion | Status |
-|---|---|
-| Formular med alle relevante felter | ✅ |
-| Live forhåndsvisning af paskortet | ✅ |
-| Farvekodede sektioner (nød, medicin, sikker mad) | ✅ |
-| Alvorlighedsbadge (mild → livstruende) | ✅ |
-| Gem i browserens localStorage | ✅ |
-| Print-optimeret CSS (kun paskortet printes) | ✅ |
-| Kopiér delingstekst til udklipsholder | ✅ |
-| Mobilvenligt layout | ✅ |
-| Ingen eksterne afhængigheder | ✅ |
-| Medicinsk disclaimer | ✅ |
+### ⏰ Medicin-udløbspåmindelse
+Angiv udløbsdato for EpiPen/primær akutmedicin. Appen viser automatisk:
+- ✓ Gyldig (grøn)
+- ⚠️ Udløber om < 90 dage (amber)
+- ⚠️ Udløber om < 30 dage – skift nu! (rød)
+- Udløbet (rød)
 
 ---
 
-## Skærmbillede
+## Alle funktioner
 
-```
-┌─────────────────────────────────────┐
-│  🛡️ ALLERGIPAS                      │
-│  Emma Larsen · 7 år                 │
-│  ⚠️ LIVSTRUENDE                      │
-├─────────────────────────────────────┤
-│  ⚠️  Allergi                         │
-│  Jordnødder, sesam, træ-nødder       │
-├─────────────────────────────────────┤
-│  🚨  Nødinstruktioner                │
-│  1. Stop kontakt med allergenet...   │
-│  5. Ring 112 ved ...                 │
-├─────────────────────────────────────┤
-│  💊  Medicin                         │
-│  EpiPen 0,15 mg                     │
-│  📍 Rød etui i skoletasken           │
-├─────────────────────────────────────┤
-│  📞  Kontakt straks                  │
-│  [Mette – 12345678] [Lars – 87654321]│
-└─────────────────────────────────────┘
-```
+| Funktion | v1 | v2 |
+|---|---|---|
+| Formular med alle allergifelter | ✅ | ✅ |
+| Live forhåndsvisning | ✅ | ✅ |
+| Farvekodede sektioner | ✅ | ✅ |
+| Alvorlighedsbadge (pulserende ved livstruende) | ✅ | ✅ |
+| Gem i localStorage | ✅ | ✅ |
+| Print-optimeret CSS | ✅ | ✅ |
+| Kopiér delingstekst | ✅ | ✅ |
+| Mobilvenligt layout | ✅ | ✅ |
+| **Flere børneprofiler** | – | ✅ |
+| **Tilstandstilstande (Pas/Fødselsdag/Skole/Restaurant)** | – | ✅ |
+| **QR-kode generering** | – | ✅ |
+| **Del som link (URL-baseret, ingen backend)** | – | ✅ |
+| **Medicin udløbsdato + visuel advarsel** | – | ✅ |
+| **View-only tilstand til modtager af delt link** | – | ✅ |
+| Ingen eksterne afhængigheder\* | ✅ | ✅ |
+| Medicinsk disclaimer | ✅ | ✅ |
+
+\*v2.0 tilføjer qrcode.js via CDN til QR-generering.
 
 ---
 
 ## Design og tone
 
-Allergipasset skal ikke føles som en hospitalsblanket. Det skal føles:
+Allergipasset må ikke føles som en hospitalsblanket. Det skal føles:
 
 - **Trygt** — roligt og overskueligt, ikke panikskabende
-- **Tydeligt** — de vigtigste oplysninger springer i øjnene med det samme
+- **Tydeligt** — de vigtigste oplysninger springer i øjnene
 - **Forældrevenligt** — alle kan oprette et pas på få minutter
-- **Handlingsklart** — personale og voksne ved præcis hvad de skal gøre
+- **Handlingsklart** — personale og andre voksne ved præcis hvad de skal gøre
 
 **Farvepalet:**
-- Hvid og mørk navy til generel information
-- Blød amber/orange til allergiadvarsler
-- Rolig rød til nødinstruktioner
+- Navy til primær information og header
+- Amber/orange til allergiadvarsler
+- Rød til nødinstruktioner
 - Grøn til sikker mad
-- Ingen blinkende panik-cirkus
+- Intet blinkende panik-cirkus — undtagen den livstruende badge, som subtilt pulserer
 
 ---
 
@@ -89,58 +85,58 @@ Allergipasset skal ikke føles som en hospitalsblanket. Det skal føles:
 ```
 allergipasset/
 ├── index.html   — Struktur og formular
-├── styles.css   — Design, farver, print-CSS
-└── app.js       — Live preview, localStorage, print, kopier
+├── styles.css   — Design, farver, print-CSS, alle tilstande
+└── app.js       — Multi-profil, tilstande, QR, deling, udløb
 ```
 
-Rent vanilla HTML, CSS og JavaScript. Ingen frameworks, ingen afhængigheder. Kan hostes gratis på GitHub Pages, Netlify eller enhver statisk hosting.
+- Rent vanilla HTML, CSS og JavaScript — nul frameworks
+- Ét eksternt bibliotek: `qrcode.js` via CDN (QR-generering)
+- Gratis hosting på GitHub Pages — ingen server
+- Data gemmes 100% lokalt i browseren (localStorage)
+- Deling via URL: pasdata kodes som base64 i linket
 
 ---
 
-## Mulige features i version 2
+## Del som link — sådan virker det
 
-### 🎂 Fødselsdagsmode
-En simpel side til andre forældre:
-*"Joris kommer til fødselsdag. Her er hvad han ikke må få, og hvad der er sikkert."*
+Ingen backend er nødvendig. Pasdata komprimeres og kodes direkte i URL'en:
 
-### 🏫 Skole/SFO-mode
-En kort instruktion målrettet personale med præcis den information de har brug for.
+```
+https://patrickpstreet-pixel.github.io/allergipasset/index.html?view=eyJjaGlsZE5hbWUi...
+```
 
-### 🍽️ Restaurant-mode
-En tydelig tekst der kan vises til køkkenet, med fokus på allergener og krydskontaminering.
+Modtageren åbner linket → ser passet i en ren view-tilstand med en "Opret dit eget" knap. QR-koden indeholder samme URL og kan scannes direkte fra telefonen.
 
-### ✈️ Rejsemode
-Oversættelse af passet til engelsk, tysk, spansk og andre sprog, klar til ferien.
-
-### 🥕 Madpakke-safe liste
-Forælderen kan lave og dele en liste over sikre snacks, mærker og butiksprodukter.
-
-### ⏰ Medicintjek-påmindelse
-*"EpiPen udløber om 30 dage."* — En lokal reminder der advarer om udløbsdato.
-
-### 📱 QR-kode generering
-Generer en QR-kode der linker direkte til passet, klar til at printe eller sende.
-
-### 👨‍👩‍👧‍👦 Flere børneprofiler
-Skift mellem profiler for søskende eller flere børn i familien.
-
-### 🌐 Offentlig delingslink
-Gem passet online og del det som et link (kræver backend eller Firebase).
-
-### 📄 PDF-eksport
-Download passet som en PDF-fil direkte fra browseren.
+> **Næste skridt — Firebase:** For kortere, permanente links og mulighed for at opdatere passet efter deling, kan Firebase Firestore tilføjes som et lag ovenpå. Det kræver kun en config-fil og ændrer ikke resten af koden.
 
 ---
 
 ## Kom i gang
 
-1. Klon eller download projektet:
-   ```bash
-   git clone https://github.com/patrickpstreet-pixel/allergipasset.git
-   ```
-2. Åbn `index.html` i en browser — ingen server nødvendig.
-3. Udfyld formularen og se passet opdatere sig live.
-4. Gem med "Gem allergipas" og print med "Print allergipas".
+```bash
+git clone https://github.com/patrickpstreet-pixel/allergipasset.git
+```
+
+Åbn `index.html` i en browser — ingen server nødvendig.
+
+---
+
+## Roadmap
+
+| Feature | Status |
+|---|---|
+| Fødselsdagsmode | ✅ v2.0 |
+| Skole/SFO-mode | ✅ v2.0 |
+| Restaurant-mode | ✅ v2.0 |
+| QR-kode | ✅ v2.0 |
+| Medicin-udløbspåmindelse | ✅ v2.0 |
+| Flere børneprofiler | ✅ v2.0 |
+| Del som link (URL-baseret) | ✅ v2.0 |
+| Firebase: kortere links + cloud sync | 🔜 v3.0 |
+| Rejsemode (EN / DE / ES) | 🔜 v3.0 |
+| PDF-eksport | 🔜 v3.0 |
+| Madpakke-safe liste | 🔜 fremtid |
+| Push-notifikation om medicinudløb | 🔜 fremtid |
 
 ---
 

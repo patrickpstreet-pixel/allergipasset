@@ -3,16 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Opret et digitalt og printbart allergipas til dit barn. Perfekt til skole, SFO, klub, bedsteforældre og legeaftaler.">
+  <meta name="description" content="Digitalt og printbart allergipas til børn. Perfekt til skole, SFO, klub, restauranter og fødselsdage.">
   <title>Allergipasset – Digitalt allergipas til børn</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- ================================================
-       HEADER – sticky, vises på alle skærme
-       ================================================ -->
-  <header class="site-header">
+  <!-- ====================================================
+       VIEW-MODE BANNER
+       Vises kun når passet åbnes via et delt link (?view=)
+       ==================================================== -->
+  <div id="view-banner" class="view-banner hidden">
+    <div class="container view-banner-inner">
+      <span>👀 Du ser et delt allergipas</span>
+      <a href="./index.html" class="view-banner-cta">Opret dit eget gratis →</a>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       HEADER – sticky
+       ==================================================== -->
+  <header class="site-header" id="site-header">
     <div class="container header-inner">
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">🛡️</span>
@@ -21,37 +32,44 @@
           <span class="brand-tagline">Digitalt allergipas til børn</span>
         </div>
       </div>
-      <div class="header-btns">
+      <div class="header-btns" id="header-btns">
         <button id="btn-header-save" class="btn btn--nav-solid" aria-label="Gem allergipas">Gem</button>
-        <button id="btn-header-print" class="btn btn--nav-ghost" aria-label="Print allergipas">Print</button>
+        <button id="btn-header-share" class="btn btn--nav-ghost" aria-label="Del allergipas">Del ↗</button>
       </div>
     </div>
   </header>
 
-  <!-- ================================================
+  <!-- ====================================================
+       PROFIL-BAR – sticky under header (skjules i view-mode)
+       ==================================================== -->
+  <nav id="profile-bar" class="profile-bar" aria-label="Børneprofiler">
+    <!-- Renderes dynamisk af app.js -->
+  </nav>
+
+  <!-- ====================================================
        MAIN
-       ================================================ -->
+       ==================================================== -->
   <main class="site-main">
     <div class="container">
 
-      <!-- Intro -->
-      <section class="intro-section">
+      <!-- Intro (skjules i view-mode) -->
+      <section class="intro-section" id="intro-section">
         <p class="intro-text">
           Lav et tydeligt allergipas med allergier, symptomer, medicin, kontaktpersoner og nødvejledning.
-          Perfekt til skole, SFO, klub, bedsteforældre og legeaftaler.
+          Del det til skole, SFO, klub, restauranter og fødselsdage.
         </p>
         <a href="#preview-section" class="jump-link">Se forhåndsvisning ↓</a>
       </section>
 
-      <!-- 2-kolonner: formular + preview -->
-      <div class="app-grid">
+      <!-- App-grid: formular + preview -->
+      <div class="app-grid" id="app-grid">
 
-        <!-- ========== FORMULAR ========== -->
-        <section class="col-form" aria-label="Udfyld allergipas">
+        <!-- ============ FORMULAR (skjules i view-mode) ============ -->
+        <section class="col-form" id="col-form" aria-label="Udfyld allergipas">
           <h2 class="col-heading">Opret allergipas</h2>
           <form id="allergy-form" novalidate>
 
-            <!-- BARNETS OPLYSNINGER -->
+            <!-- Barnets oplysninger -->
             <div class="card" role="group" aria-labelledby="lbl-child">
               <h3 class="card-title" id="lbl-child">
                 <span aria-hidden="true">👤</span> Barnets oplysninger
@@ -59,7 +77,7 @@
               <div class="field-row">
                 <div class="field">
                   <label for="childName">Barnets navn</label>
-                  <input type="text" id="childName" placeholder="Fulde navn" autocomplete="name">
+                  <input type="text" id="childName" placeholder="Fulde navn" autocomplete="off">
                 </div>
                 <div class="field field--narrow">
                   <label for="childAge">Alder</label>
@@ -68,7 +86,7 @@
               </div>
             </div>
 
-            <!-- ALLERGI -->
+            <!-- Allergi -->
             <div class="card card--warning" role="group" aria-labelledby="lbl-allergy">
               <h3 class="card-title" id="lbl-allergy">
                 <span aria-hidden="true">⚠️</span> Allergi
@@ -88,12 +106,12 @@
                 </select>
               </div>
               <div class="field">
-                <label for="exposure">Reagerer barnet på spor / kontakt / luftbåren eksponering?</label>
-                <textarea id="exposure" rows="3" placeholder="Beskriv om barnet reagerer på spor, berøring eller luftbåren eksponering..."></textarea>
+                <label for="exposure">Reagerer på spor / kontakt / luftbåren eksponering?</label>
+                <textarea id="exposure" rows="3" placeholder="Beskriv reaktion på kontaktspor, berøring eller luftbåren eksponering..."></textarea>
               </div>
             </div>
 
-            <!-- SYMPTOMER & SIKKER MAD -->
+            <!-- Symptomer & Sikker mad -->
             <div class="card" role="group" aria-labelledby="lbl-symptoms">
               <h3 class="card-title" id="lbl-symptoms">
                 <span aria-hidden="true">🩺</span> Symptomer & Sikker mad
@@ -108,22 +126,27 @@
               </div>
             </div>
 
-            <!-- MEDICIN -->
+            <!-- Medicin -->
             <div class="card card--info" role="group" aria-labelledby="lbl-medicine">
               <h3 class="card-title" id="lbl-medicine">
                 <span aria-hidden="true">💊</span> Medicin
               </h3>
               <div class="field">
                 <label for="medicine">Medicin barnet har med</label>
-                <textarea id="medicine" rows="3" placeholder="f.eks. EpiPen 0,15 mg, Cetirizin antihistamin, Betnesol stikpiller..."></textarea>
+                <textarea id="medicine" rows="3" placeholder="f.eks. EpiPen 0,15 mg, Cetirizin antihistamin, Betnesol..."></textarea>
               </div>
               <div class="field">
                 <label for="medicineLocation">Hvor ligger medicinen?</label>
                 <input type="text" id="medicineLocation" placeholder="f.eks. Den røde etui i skoletasken, forreste lomme">
               </div>
+              <div class="field">
+                <label for="medicineExpiry">Udløbsdato for primær akutmedicin (f.eks. EpiPen)</label>
+                <input type="date" id="medicineExpiry">
+                <div id="expiry-warning" class="expiry-warning" aria-live="polite"></div>
+              </div>
             </div>
 
-            <!-- KONTAKTPERSONER -->
+            <!-- Kontaktpersoner -->
             <div class="card" role="group" aria-labelledby="lbl-contacts">
               <h3 class="card-title" id="lbl-contacts">
                 <span aria-hidden="true">📞</span> Kontaktpersoner
@@ -150,7 +173,7 @@
               </div>
             </div>
 
-            <!-- NØDINSTRUKTIONER -->
+            <!-- Nødinstruktioner -->
             <div class="card card--emergency" role="group" aria-labelledby="lbl-emergency">
               <h3 class="card-title" id="lbl-emergency">
                 <span aria-hidden="true">🚨</span> Nødinstruktioner
@@ -162,7 +185,7 @@
               </div>
             </div>
 
-            <!-- EKSTRA NOTER -->
+            <!-- Ekstra noter -->
             <div class="card" role="group" aria-labelledby="lbl-notes">
               <h3 class="card-title" id="lbl-notes">
                 <span aria-hidden="true">📝</span> Ekstra noter
@@ -173,13 +196,13 @@
               </div>
             </div>
 
-            <!-- HANDLINGSKNAPPER -->
+            <!-- Handlingsknapper -->
             <div class="action-grid" role="group" aria-label="Handlinger">
               <button type="button" id="btn-save" class="btn btn--primary">
                 <span aria-hidden="true">💾</span> Gem allergipas
               </button>
               <button type="button" id="btn-copy" class="btn btn--secondary">
-                <span aria-hidden="true">📋</span> Kopiér delingstekst
+                <span aria-hidden="true">📋</span> Kopiér tekst
               </button>
               <button type="button" id="btn-print" class="btn btn--secondary">
                 <span aria-hidden="true">🖨️</span> Print allergipas
@@ -192,107 +215,66 @@
           </form>
         </section>
 
-        <!-- ========== PREVIEW ========== -->
+        <!-- ============ PREVIEW ============ -->
         <section class="col-preview" id="preview-section" aria-label="Forhåndsvisning">
-          <div class="preview-sticky-wrap">
+          <div class="preview-sticky-wrap" id="preview-sticky">
 
-            <div class="preview-col-header">
-              <h2 class="col-heading">Forhåndsvisning</h2>
-              <span class="live-badge" aria-hidden="true">LIVE</span>
+            <!-- Preview-header: titel + LIVE badge + mode-tabs -->
+            <div class="preview-col-header" id="preview-col-header">
+              <div class="preview-title-row">
+                <h2 class="col-heading">Forhåndsvisning</h2>
+                <span class="live-badge" aria-hidden="true" id="live-badge">LIVE</span>
+              </div>
+              <!-- Mode tabs -->
+              <div class="mode-tabs" id="mode-tabs" role="tablist" aria-label="Visningstilstand">
+                <button class="mode-tab active" data-mode="standard"    role="tab" aria-selected="true">📋 Pas</button>
+                <button class="mode-tab"        data-mode="birthday"    role="tab" aria-selected="false">🎂 Fødselsdag</button>
+                <button class="mode-tab"        data-mode="school"      role="tab" aria-selected="false">🏫 Skole</button>
+                <button class="mode-tab"        data-mode="restaurant"  role="tab" aria-selected="false">🍽️ Restaurant</button>
+              </div>
             </div>
 
-            <!-- PASKORTET -->
-            <article class="passport" id="passport-card">
+            <!-- Paskortet – indhold renderes af app.js -->
+            <article class="passport" id="passport-card" aria-live="polite">
+              <!-- Indhold indsættes af updatePreview() -->
+            </article>
 
-              <!-- Passets top / header -->
-              <header class="passport-top">
-                <div class="passport-logo-line" aria-hidden="true">🛡️ ALLERGIPAS</div>
-                <div class="passport-identity">
-                  <div class="passport-name-row">
-                    <span id="prev-name" class="passport-name">Barnets navn</span>
-                    <span id="prev-age" class="passport-age"></span>
-                  </div>
-                  <span id="prev-severity" class="sev-badge sev--empty">Alvorlighed ikke angivet</span>
-                </div>
-              </header>
+            <!-- Del / QR-kode panel -->
+            <div class="share-panel" id="share-panel">
+              <div class="share-panel-qr">
+                <canvas id="qr-canvas" aria-label="QR-kode til deling af allergipas"></canvas>
+              </div>
+              <div class="share-panel-info">
+                <p class="share-panel-title">Del allergipas</p>
+                <p class="share-panel-hint">Scan QR-koden eller kopier linket</p>
+                <button id="btn-copy-link" class="btn btn--primary btn--sm">
+                  <span aria-hidden="true">📎</span> Kopiér link
+                </button>
+              </div>
+            </div>
 
-              <!-- Passets krop -->
-              <div class="passport-body">
+            <!-- Toast -->
+            <div id="save-toast" class="toast" role="status" aria-live="polite"></div>
 
-                <div class="ps ps--allergy">
-                  <div class="ps-label">⚠️ Allergi</div>
-                  <div id="prev-allergies" class="ps-content">–</div>
-                </div>
-
-                <div class="ps">
-                  <div class="ps-label">🔬 Spor / kontakt / luftbåren reaktion</div>
-                  <div id="prev-exposure" class="ps-content">–</div>
-                </div>
-
-                <div class="ps">
-                  <div class="ps-label">🩺 Symptomer</div>
-                  <div id="prev-symptoms" class="ps-content">–</div>
-                </div>
-
-                <div class="ps ps--emergency">
-                  <div class="ps-label">🚨 Nødinstruktioner</div>
-                  <div id="prev-emergency" class="ps-content">–</div>
-                </div>
-
-                <div class="ps ps--medicine">
-                  <div class="ps-label">💊 Medicin</div>
-                  <div id="prev-medicine" class="ps-content">–</div>
-                  <div id="prev-med-loc-row" class="ps-med-loc">
-                    <span class="ps-med-loc-label">📍 Ligger i:</span>
-                    <span id="prev-med-loc"></span>
-                  </div>
-                </div>
-
-                <div class="ps ps--safe">
-                  <div class="ps-label">✅ Sikker mad & snacks</div>
-                  <div id="prev-safe-food" class="ps-content">–</div>
-                </div>
-
-                <div class="ps">
-                  <div class="ps-label">📞 Kontakt straks ved reaktion</div>
-                  <div id="prev-contacts" class="prev-contact-cards">
-                    <span class="prev-contact-empty">Ingen kontakter angivet</span>
-                  </div>
-                </div>
-
-                <div class="ps" id="prev-notes-row">
-                  <div class="ps-label">📝 Ekstra noter</div>
-                  <div id="prev-notes" class="ps-content">–</div>
-                </div>
-
-                <div class="passport-disclaimer">
-                  Allergipasset erstatter ikke lægefaglig rådgivning. Følg altid barnets officielle
-                  behandlingsplan og kontakt læge/112 ved alvorlige symptomer.
-                </div>
-
-              </div><!-- /passport-body -->
-            </article><!-- /passport -->
-
-            <!-- Toast bekræftelse -->
-            <div id="save-toast" class="toast" aria-live="polite"></div>
-
-          </div><!-- /preview-sticky-wrap -->
+          </div>
         </section>
 
       </div><!-- /app-grid -->
     </div><!-- /container -->
   </main>
 
-  <!-- ================================================
+  <!-- ====================================================
        FOOTER
-       ================================================ -->
-  <footer class="site-footer">
+       ==================================================== -->
+  <footer class="site-footer" id="site-footer">
     <div class="container">
       <p>Allergipasset &copy; 2024 &mdash; Et gratis værktøj til familier med allergibørn</p>
       <p class="footer-note">Erstatter ikke lægefaglig rådgivning &mdash; kontakt altid læge/112 ved alvorlige symptomer.</p>
     </div>
   </footer>
 
+  <!-- QR-kode bibliotek (qrcode npm package via CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

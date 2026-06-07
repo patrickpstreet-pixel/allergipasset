@@ -1,6 +1,6 @@
 /* =======================================================
-   ALLERGIPASSET – app.js
-   Vanilla JS: live preview, localStorage, print, copy
+   ALLERGIPASSET v2.0 – app.js
+   Multi-profil · Modes · QR-deling · Medicinpåmindelser
    ======================================================= */
 
 'use strict';
@@ -17,178 +17,558 @@ const DEFAULT_EMERGENCY =
 4. Giv akutmedicin hvis barnets plan siger det.
 5. Ring 112 ved vejrtrækningsbesvær, hævelse i ansigt/hals, sløvhed, kraftig reaktion eller hurtig forværring.`;
 
-const STORAGE_KEY = 'allergyPassportData';
+const STORAGE_KEY_V2 = 'allergyPassportV2';
+const STORAGE_KEY_V1 = 'allergyPassportData'; // til migration
 
-// Alle felt-ID'er der skal gemmes og indlæses
 const FIELD_IDS = [
   'childName', 'childAge', 'allergies', 'severity',
   'exposure', 'symptoms', 'safeFood',
-  'medicine', 'medicineLocation',
+  'medicine', 'medicineExpiry', 'medicineLocation',
   'contact1Name', 'contact1Phone',
   'contact2Name', 'contact2Phone',
   'emergencyInstructions', 'notes'
 ];
 
-const SEVERITY_LABELS = {
-  mild:         'Mild',
-  moderat:      'Moderat',
-  alvorlig:     'Alvorlig',
-  livstruende:  '⚠️ Livstruende'
+const SEV_LABELS = {
+  mild:        'Mild',
+  moderat:     'Moderat',
+  alvorlig:    'Alvorlig',
+  livstruende: '⚠️ Livstruende'
 };
 
 /* -------------------------------------------------------
-   HJÆLPEFUNKTIONER
+   STATE
    ------------------------------------------------------- */
 
-// Sikker HTML-escaping (bruges ved innerHTML-indsættelse)
+let activeProfileId = null;
+let profiles        = {};  // { [id]: { id, data: { fieldId: value } } }
+let currentMode     = 'standard';
+let isViewMode      = false;
+let qrUpdateTimer   = null;
+
+/* -------------------------------------------------------
+   HELPERS
+   ------------------------------------------------------- */
+
 function escHtml(str) {
   const d = document.createElement('div');
-  d.textContent = str;
+  d.textContent = str || '';
   return d.innerHTML;
 }
 
-// Hent et enkelt felt-ID's trimmede værdi
+function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
 function val(id) {
   const el = document.getElementById(id);
   return el ? el.value.trim() : '';
 }
 
 /* -------------------------------------------------------
-   LOCALSTORAGE – gem / indlæs / ryd
+   MEDICIN UDLØB
    ------------------------------------------------------- */
 
-function saveData() {
-  const data = {};
-  FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) data[id] = el.value;
-  });
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    showToast('✓ Allergipas gemt', '#16A34A');
-  } catch (e) {
-    showToast('⚠️ Kunne ikke gemme – kontrollér browserindstillinger', '#B45309');
-  }
+function expiryStatus(dateStr) {
+  if (!dateStr) return null;
+  const days = Math.ceil((new Date(dateStr) - Date.now()) / 86400000);
+  if (days < 0)   return { text: `Udløbet for ${Math.abs(days)} dag${Math.abs(days) === 1 ? '' : 'e'} siden!`, cls: 'expiry--expired' };
+  if (days <= 30) return { text: `⚠️ Udløber om ${days} dag${days === 1 ? '' : 'e'} – skift nu!`, cls: 'expiry--critical' };
+  if (days <= 90) return { text: `Udløber om ${days} dage`, cls: 'expiry--warning' };
+  return { text: `✓ Gyldig til ${new Date(dateStr).toLocaleDateString('da-DK')}`, cls: 'expiry--ok' };
 }
 
-function loadData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
-  try {
-    const data = JSON.parse(raw);
-    FIELD_IDS.forEach(id => {
-      const el = document.getElementById(id);
-      if (el && data[id] !== undefined) el.value = data[id];
-    });
-  } catch (e) {
-    console.warn('Allergipasset: kunne ikke indlæse gemt data:', e);
+function updateExpiryWidget() {
+  const dateStr = val('medicineExpiry');
+  const warningEl = document.getElementById('expiry-warning');
+  if (!warningEl) return;
+
+  const status = expiryStatus(dateStr);
+  if (status) {
+    warningEl.textContent = status.text;
+    warningEl.className = `expiry-warning visible ${status.cls}`;
+  } else {
+    warningEl.className = 'expiry-warning';
   }
-}
-
-function clearData() {
-  const confirmed = window.confirm(
-    'Er du sikker på, at du vil rydde formularen?\nAlt gemt data slettes permanent.'
-  );
-  if (!confirmed) return;
-
-  localStorage.removeItem(STORAGE_KEY);
-
-  FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (id === 'severity') {
-      el.value = '';
-    } else if (id === 'emergencyInstructions') {
-      el.value = DEFAULT_EMERGENCY;
-    } else {
-      el.value = '';
-    }
-  });
-
-  updatePreview();
-  showToast('Formular ryddet', '#64748B');
 }
 
 /* -------------------------------------------------------
-   LIVE PREVIEW – opdateres ved hvert tastaturtryk
+   STORAGE – gem / indlæs / migrer fra v1
+   ------------------------------------------------------- */
+
+function saveStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY_V2, JSON.stringify({ activeProfileId, profiles }));
+  } catch (e) {
+    showToast('⚠️ Kunne ikke gemme – tjek browserindstillinger', '#B45309');
+  }
+}
+
+function loadStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY_V2);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      profiles        = parsed.profiles       || {};
+      activeProfileId = parsed.activeProfileId || null;
+      return true;
+    } catch { /* ignorér */ }
+  }
+  return false;
+}
+
+// Migrer v1 data til v2 som første profil
+function migrateV1() {
+  const raw = localStorage.getItem(STORAGE_KEY_V1);
+  if (!raw) return false;
+  try {
+    const oldData = JSON.parse(raw);
+    const id = uid();
+    profiles[id] = { id, data: { ...emptyData(), ...oldData } };
+    activeProfileId = id;
+    saveStorage();
+    return true;
+  } catch { return false; }
+}
+
+function emptyData() {
+  const d = {};
+  FIELD_IDS.forEach(id => { d[id] = id === 'emergencyInstructions' ? DEFAULT_EMERGENCY : ''; });
+  return d;
+}
+
+/* -------------------------------------------------------
+   PROFIL MANAGEMENT
+   ------------------------------------------------------- */
+
+function createProfile(name) {
+  const id   = uid();
+  const data = emptyData();
+  data.childName = name || '';
+  profiles[id] = { id, data };
+  activeProfileId = id;
+  saveStorage();
+  fillForm(profiles[id].data);
+  renderProfileBar();
+  updatePreview();
+}
+
+function switchProfile(id) {
+  if (!profiles[id]) return;
+  // Gem nuværende formular inden skift
+  if (activeProfileId && profiles[activeProfileId]) {
+    profiles[activeProfileId].data = readForm();
+  }
+  activeProfileId = id;
+  saveStorage();
+  fillForm(profiles[id].data);
+  renderProfileBar();
+  updatePreview();
+}
+
+function deleteProfile(id) {
+  if (Object.keys(profiles).length <= 1) {
+    showToast('Du kan ikke slette den eneste profil.', '#B45309');
+    return;
+  }
+  const name = profiles[id]?.data?.childName || 'denne profil';
+  if (!confirm(`Vil du slette profilen for "${name}"?`)) return;
+  delete profiles[id];
+  if (activeProfileId === id) {
+    activeProfileId = Object.keys(profiles)[0];
+    fillForm(profiles[activeProfileId].data);
+  }
+  saveStorage();
+  renderProfileBar();
+  updatePreview();
+}
+
+// Returnér kortnavn til profil-pill
+function profileDisplayName(profile) {
+  const name = (profile.data.childName || '').trim();
+  if (!name) return 'Nyt barn';
+  return name.split(' ')[0]; // kun fornavn i pill
+}
+
+/* -------------------------------------------------------
+   PROFIL-BAR RENDERING
+   ------------------------------------------------------- */
+
+function renderProfileBar() {
+  const bar = document.getElementById('profile-bar');
+  if (!bar) return;
+
+  const pills = Object.values(profiles).map(p => {
+    const active = p.id === activeProfileId ? 'active' : '';
+    const dname  = escHtml(profileDisplayName(p));
+    return `
+      <button class="profile-pill ${active}" data-profile-id="${p.id}" aria-pressed="${p.id === activeProfileId}">
+        ${dname}
+        <span class="profile-pill-delete" data-delete-id="${p.id}" title="Slet profil" aria-label="Slet profil for ${dname}">✕</span>
+      </button>`;
+  }).join('');
+
+  bar.innerHTML = pills + `
+    <button class="profile-add-btn" id="btn-add-profile" aria-label="Tilføj ny profil">
+      + Tilføj barn
+    </button>`;
+
+  // Klik på profil-pill (men ikke delete-knap)
+  bar.querySelectorAll('.profile-pill').forEach(btn => {
+    btn.addEventListener('click', e => {
+      if (e.target.closest('.profile-pill-delete')) return;
+      switchProfile(btn.dataset.profileId);
+    });
+  });
+
+  // Klik på delete
+  bar.querySelectorAll('.profile-pill-delete').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteProfile(btn.dataset.deleteId);
+    });
+  });
+
+  // Tilføj nyt barn
+  document.getElementById('btn-add-profile')?.addEventListener('click', () => {
+    const name = prompt('Barnets navn:');
+    if (name === null) return; // annulleret
+    createProfile(name.trim());
+    showToast(`✓ Profil oprettet for ${name || 'nyt barn'}`, '#16A34A');
+  });
+}
+
+/* -------------------------------------------------------
+   FORM ↔ DATA BINDING
+   ------------------------------------------------------- */
+
+function readForm() {
+  const data = {};
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    data[id] = el ? el.value : '';
+  });
+  return data;
+}
+
+function fillForm(data) {
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = data[id] !== undefined ? data[id] : (id === 'emergencyInstructions' ? DEFAULT_EMERGENCY : '');
+  });
+  updateExpiryWidget();
+}
+
+// Kaldes ved hvert tastetryk: gem til aktiv profil + opdater preview
+function onFieldChange() {
+  if (activeProfileId && profiles[activeProfileId]) {
+    profiles[activeProfileId].data = readForm();
+    // Opdater profil-pill navn live
+    const pill = document.querySelector(`.profile-pill[data-profile-id="${activeProfileId}"] `);
+    if (pill) {
+      const nameNode = pill.firstChild;
+      if (nameNode && nameNode.nodeType === 3) {
+        nameNode.textContent = profileDisplayName(profiles[activeProfileId]);
+      }
+    }
+  }
+  updateExpiryWidget();
+  updatePreview();
+  // Debounce QR-generering (tung operation)
+  clearTimeout(qrUpdateTimer);
+  qrUpdateTimer = setTimeout(updateQR, 600);
+}
+
+/* -------------------------------------------------------
+   PASSPORT PREVIEW RENDERING
    ------------------------------------------------------- */
 
 function updatePreview() {
-  const name              = val('childName');
-  const age               = val('childAge');
-  const allergies         = val('allergies');
-  const severity          = val('severity');
-  const exposure          = val('exposure');
-  const symptoms          = val('symptoms');
-  const safeFood          = val('safeFood');
-  const medicine          = val('medicine');
-  const medLoc            = val('medicineLocation');
-  const c1Name            = val('contact1Name');
-  const c1Phone           = val('contact1Phone');
-  const c2Name            = val('contact2Name');
-  const c2Phone           = val('contact2Phone');
-  const emergency         = val('emergencyInstructions');
-  const notes             = val('notes');
+  const card = document.getElementById('passport-card');
+  if (!card) return;
 
-  // --- Navn & alder ---
-  document.getElementById('prev-name').textContent = name || 'Barnets navn';
-  document.getElementById('prev-age').textContent  = age || '';
+  const data = isViewMode
+    ? (window._viewData || {})
+    : (profiles[activeProfileId]?.data || emptyData());
 
-  // --- Alvorlighedsbadge ---
-  const sevEl = document.getElementById('prev-severity');
-  sevEl.className = 'sev-badge';
-  if (severity && SEVERITY_LABELS[severity]) {
-    sevEl.textContent = SEVERITY_LABELS[severity];
-    sevEl.classList.add('sev--' + severity);
-  } else {
-    sevEl.textContent = 'Alvorlighed ikke angivet';
-    sevEl.classList.add('sev--empty');
+  card.innerHTML = renderPassport(currentMode, data);
+
+  // Print-dato
+  const disclaimer = card.querySelector('.passport-disclaimer');
+  if (disclaimer) {
+    disclaimer.setAttribute('data-print-date',
+      new Date().toLocaleDateString('da-DK', { day:'2-digit', month:'long', year:'numeric' }));
   }
-
-  // --- Simpelt tekstindhold ---
-  document.getElementById('prev-allergies').textContent = allergies || '–';
-  document.getElementById('prev-exposure').textContent  = exposure  || '–';
-  document.getElementById('prev-symptoms').textContent  = symptoms  || '–';
-  document.getElementById('prev-emergency').textContent = emergency || '–';
-  document.getElementById('prev-medicine').textContent  = medicine  || '–';
-  document.getElementById('prev-safe-food').textContent = safeFood  || '–';
-  document.getElementById('prev-notes').textContent     = notes     || '–';
-
-  // --- Medicin-lokation ---
-  const medLocRow = document.getElementById('prev-med-loc-row');
-  document.getElementById('prev-med-loc').textContent = medLoc;
-  medLocRow.style.display = medLoc ? '' : 'none';
-
-  // --- Kontaktkort ---
-  renderContacts(c1Name, c1Phone, c2Name, c2Phone);
-
-  // --- Skriv print-dato på disclaimeren (bruges i print-CSS) ---
-  const today = new Date().toLocaleDateString('da-DK', { day:'2-digit', month:'long', year:'numeric' });
-  document.querySelector('.passport-disclaimer')
-          ?.setAttribute('data-print-date', today);
 }
 
-function renderContacts(c1Name, c1Phone, c2Name, c2Phone) {
-  const container = document.getElementById('prev-contacts');
-  const contacts  = [];
+function renderPassport(mode, d) {
+  switch (mode) {
+    case 'birthday':    return renderBirthdayMode(d);
+    case 'school':      return renderSchoolMode(d);
+    case 'restaurant':  return renderRestaurantMode(d);
+    default:            return renderStandardMode(d);
+  }
+}
 
+/* --- Hjælpefunktioner til rendering --- */
+
+function sevBadgeHtml(severity) {
+  if (!severity) return `<span class="sev-badge sev--empty">Alvorlighed ikke angivet</span>`;
+  return `<span class="sev-badge sev--${severity}">${escHtml(SEV_LABELS[severity] || severity)}</span>`;
+}
+
+function contactCardsHtml(c1Name, c1Phone, c2Name, c2Phone) {
+  const contacts = [];
   if (c1Name || c1Phone) contacts.push({ name: c1Name, phone: c1Phone });
   if (c2Name || c2Phone) contacts.push({ name: c2Name, phone: c2Phone });
 
-  if (contacts.length === 0) {
-    container.innerHTML = '<span class="prev-contact-empty">Ingen kontakter angivet</span>';
-    return;
+  if (!contacts.length) {
+    return `<div class="prev-contact-grid"><span class="prev-contact-empty">Ingen kontakter angivet</span></div>`;
   }
-
-  container.innerHTML = contacts.map(c => `
+  const cards = contacts.map(c => `
     <div class="prev-contact-card">
       <span class="prev-contact-name">${escHtml(c.name || 'Kontakt')}</span>
       ${c.phone
         ? `<a href="tel:${escHtml(c.phone)}" class="prev-contact-phone">${escHtml(c.phone)}</a>`
-        : '<span class="prev-contact-phone" style="opacity:.5">–</span>'
-      }
-    </div>
-  `).join('');
+        : '<span class="prev-contact-phone" style="opacity:.4">–</span>'}
+    </div>`).join('');
+  return `<div class="prev-contact-grid">${cards}</div>`;
+}
+
+function expiryBadgeHtml(dateStr) {
+  const s = expiryStatus(dateStr);
+  if (!s) return '';
+  return `<div class="ps-expiry ${s.cls}">${escHtml(s.text)}</div>`;
+}
+
+function disclaimerHtml() {
+  return `<div class="passport-disclaimer">
+    Allergipasset erstatter ikke lægefaglig rådgivning. Følg altid barnets officielle
+    behandlingsplan og kontakt læge/112 ved alvorlige symptomer.
+  </div>`;
+}
+
+/* --- STANDARD MODE --- */
+function renderStandardMode(d) {
+  return `
+    <header class="passport-top">
+      <div class="passport-logo-line">🛡️ ALLERGIPAS</div>
+      <div class="passport-name-row">
+        <span class="passport-name">${escHtml(d.childName || 'Barnets navn')}</span>
+        ${d.childAge ? `<span class="passport-age">${escHtml(d.childAge)}</span>` : ''}
+      </div>
+      ${sevBadgeHtml(d.severity)}
+    </header>
+    <div class="passport-body">
+      <div class="ps ps--allergy">
+        <div class="ps-label">⚠️ Allergi</div>
+        <div class="ps-content">${escHtml(d.allergies || '–')}</div>
+      </div>
+      <div class="ps">
+        <div class="ps-label">🔬 Spor / kontakt / luftbåren reaktion</div>
+        <div class="ps-content">${escHtml(d.exposure || '–')}</div>
+      </div>
+      <div class="ps">
+        <div class="ps-label">🩺 Symptomer</div>
+        <div class="ps-content">${escHtml(d.symptoms || '–')}</div>
+      </div>
+      <div class="ps ps--emergency">
+        <div class="ps-label">🚨 Nødinstruktioner</div>
+        <div class="ps-content">${escHtml(d.emergencyInstructions || '–')}</div>
+      </div>
+      <div class="ps ps--medicine">
+        <div class="ps-label">💊 Medicin</div>
+        <div class="ps-content">${escHtml(d.medicine || '–')}</div>
+        ${d.medicineLocation ? `<div class="ps-med-loc"><span class="ps-med-loc-label">📍 Ligger i:</span>${escHtml(d.medicineLocation)}</div>` : ''}
+        ${expiryBadgeHtml(d.medicineExpiry)}
+      </div>
+      <div class="ps ps--safe">
+        <div class="ps-label">✅ Sikker mad & snacks</div>
+        <div class="ps-content">${escHtml(d.safeFood || '–')}</div>
+      </div>
+      <div class="ps">
+        <div class="ps-label">📞 Kontakt straks ved reaktion</div>
+        ${contactCardsHtml(d.contact1Name, d.contact1Phone, d.contact2Name, d.contact2Phone)}
+      </div>
+      ${d.notes ? `<div class="ps"><div class="ps-label">📝 Ekstra noter</div><div class="ps-content">${escHtml(d.notes)}</div></div>` : ''}
+      ${disclaimerHtml()}
+    </div>`;
+}
+
+/* --- BIRTHDAY MODE --- */
+function renderBirthdayMode(d) {
+  const name     = escHtml(d.childName || 'Barnet');
+  const allergen = escHtml(d.allergies || '–');
+  return `
+    <header class="passport-top passport-top--birthday">
+      <div class="passport-logo-line">🎂 FØDSELSDAGSKORT</div>
+      <div class="passport-name-row">
+        <span class="passport-name">${name}</span>
+        ${d.childAge ? `<span class="passport-age">${escHtml(d.childAge)}</span>` : ''}
+      </div>
+      <p class="birthday-intro-text">kommer til din fødselsdag! Her er hvad der er vigtigt at vide.</p>
+    </header>
+    <div class="passport-body">
+      <div class="ps ps--allergy">
+        <div class="ps-label">❌ MÅ IKKE spise</div>
+        <div class="ps-content ps-content--lg">${allergen}</div>
+        ${d.exposure ? `<div class="ps-content" style="margin-top:6px;font-size:.8rem;color:#92400E">Heller ikke spor, kontakt eller luftbåren eksponering af: ${escHtml(d.exposure)}</div>` : ''}
+      </div>
+      <div class="ps ps--safe">
+        <div class="ps-label">✅ MÅ GERNE spise</div>
+        <div class="ps-content">${escHtml(d.safeFood || 'Spørg barnets forældre inden du giver mad.')}</div>
+      </div>
+      <div class="ps ps--emergency">
+        <div class="ps-label">🚨 Hvis noget sker – gør dette:</div>
+        <div class="ps-content" style="font-size:.8125rem">
+          Stop al mad. Hold barnet under opsyn. Ring straks til forældrene.
+          ${d.medicine ? `<br><strong>Medicin: ${escHtml(d.medicine)}</strong>` : ''}
+          ${d.medicineLocation ? `<br>Medicin ligger: ${escHtml(d.medicineLocation)}` : ''}
+          <br>Ring 112 ved vejrtrækningsbesvær, hævelse eller kraftig reaktion.
+        </div>
+      </div>
+      <div class="ps">
+        <div class="ps-label">📞 Ring straks til forælder</div>
+        ${contactCardsHtml(d.contact1Name, d.contact1Phone, d.contact2Name, d.contact2Phone)}
+      </div>
+      ${d.notes ? `<div class="ps"><div class="ps-label">📝 Ekstra</div><div class="ps-content">${escHtml(d.notes)}</div></div>` : ''}
+      ${disclaimerHtml()}
+    </div>`;
+}
+
+/* --- SCHOOL / SFO MODE --- */
+function renderSchoolMode(d) {
+  return `
+    <header class="passport-top passport-top--school">
+      <div class="passport-logo-line">🏫 ALLERGIKORT – PERSONALE</div>
+      <div class="passport-name-row">
+        <span class="passport-name">${escHtml(d.childName || 'Barnets navn')}</span>
+        ${d.childAge ? `<span class="passport-age">${escHtml(d.childAge)}</span>` : ''}
+      </div>
+      ${sevBadgeHtml(d.severity)}
+    </header>
+    <div class="passport-body">
+      <div class="ps ps--allergy">
+        <div class="ps-label">⚠️ Allergi</div>
+        <div class="ps-content ps-content--lg">${escHtml(d.allergies || '–')}</div>
+        ${d.exposure ? `<div class="ps-content" style="margin-top:5px;font-size:.8rem">Reaktion på: ${escHtml(d.exposure)}</div>` : ''}
+      </div>
+      <div class="ps ps--emergency">
+        <div class="ps-label">🚨 Handlingsplan ved reaktion</div>
+        <div class="ps-content">${escHtml(d.emergencyInstructions || '–')}</div>
+      </div>
+      <div class="ps ps--medicine">
+        <div class="ps-label">💊 Medicin – find den straks</div>
+        <div class="ps-content" style="font-weight:600">${escHtml(d.medicine || '–')}</div>
+        ${d.medicineLocation ? `<div class="ps-med-loc"><span class="ps-med-loc-label">📍 Ligger i:</span>${escHtml(d.medicineLocation)}</div>` : ''}
+        ${expiryBadgeHtml(d.medicineExpiry)}
+      </div>
+      <div class="ps ps--safe">
+        <div class="ps-label">✅ Sikker mad</div>
+        <div class="ps-content">${escHtml(d.safeFood || '–')}</div>
+      </div>
+      <div class="ps">
+        <div class="ps-label">📞 Kontakt forældre straks</div>
+        ${contactCardsHtml(d.contact1Name, d.contact1Phone, d.contact2Name, d.contact2Phone)}
+      </div>
+      ${d.notes ? `<div class="ps"><div class="ps-label">📝 Ekstra</div><div class="ps-content">${escHtml(d.notes)}</div></div>` : ''}
+      ${disclaimerHtml()}
+    </div>`;
+}
+
+/* --- RESTAURANT MODE --- */
+function renderRestaurantMode(d) {
+  const isSerious = d.severity === 'alvorlig' || d.severity === 'livstruende';
+  return `
+    <header class="passport-top passport-top--restaurant">
+      <div class="passport-logo-line">🍽️ ALLERGIINFORMATION – KØKKEN</div>
+      <div class="passport-name-row">
+        <span class="passport-name">${escHtml(d.childName || 'Gæst')}</span>
+        ${d.childAge ? `<span class="passport-age">${escHtml(d.childAge)}</span>` : ''}
+      </div>
+      ${sevBadgeHtml(d.severity)}
+    </header>
+    <div class="passport-body">
+      <div class="ps ps--allergy">
+        <div class="ps-label">⚠️ Kan ikke spise</div>
+        <div class="ps-content ps-content--xl">${escHtml(d.allergies || '–')}</div>
+      </div>
+      ${d.exposure ? `
+      <div class="ps" style="background:#FEF2F2;border-left:4px solid #D62828">
+        <div class="ps-label" style="color:#C1121F">🔬 Reagerer på spor / kontakt / luftbåren eksponering</div>
+        <div class="ps-content">${escHtml(d.exposure)}</div>
+      </div>` : ''}
+      <div class="ps">
+        <div class="ps-label">📋 Anmodning til køkkenet</div>
+        <div class="restaurant-request">
+          ${isSerious ? '⚠️ <strong>Krydsforurening accepteres IKKE.</strong><br>' : ''}
+          Venligst bekræft allergenindhold i alle retter og undgå kontakt med ovenstående allergener.
+        </div>
+      </div>
+      ${d.safeFood ? `
+      <div class="ps ps--safe">
+        <div class="ps-label">✅ Gæsten kan spise</div>
+        <div class="ps-content">${escHtml(d.safeFood)}</div>
+      </div>` : ''}
+      ${(d.contact1Name || d.contact1Phone) ? `
+      <div class="ps">
+        <div class="ps-label">📞 Spørgsmål? Kontakt</div>
+        ${contactCardsHtml(d.contact1Name, d.contact1Phone, d.contact2Name, d.contact2Phone)}
+      </div>` : ''}
+      ${disclaimerHtml()}
+    </div>`;
+}
+
+/* -------------------------------------------------------
+   QR-KODE & DELING
+   ------------------------------------------------------- */
+
+function buildShareUrl(data) {
+  try {
+    const json    = JSON.stringify(data);
+    const encoded = btoa(encodeURIComponent(json));
+    const base    = location.origin + location.pathname.replace(/\/[^/]*$/, '/') ;
+    return `${base}index.html?view=${encoded}`;
+  } catch { return location.href; }
+}
+
+function updateQR() {
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+
+  const data = profiles[activeProfileId]?.data || emptyData();
+  const url  = buildShareUrl(data);
+
+  if (typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(canvas, url, {
+      width: 90,
+      margin: 1,
+      color: { dark: '#1A2B4A', light: '#FFFFFF' }
+    }, err => {
+      if (err) console.warn('QR fejl:', err);
+    });
+  }
+
+  // Gem URL på canvas-elementet til brug i copyShareLink
+  canvas.dataset.shareUrl = url;
+}
+
+function copyShareLink() {
+  const canvas  = document.getElementById('qr-canvas');
+  const url     = canvas?.dataset.shareUrl || buildShareUrl(profiles[activeProfileId]?.data || {});
+  navigator.clipboard.writeText(url)
+    .then(() => showToast('📎 Link kopieret til udklipsholder', '#2C4A7C'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.cssText = 'position:fixed;opacity:0;top:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); showToast('📎 Link kopieret', '#2C4A7C'); }
+      catch { showToast('⚠️ Kopiering mislykkedes', '#B45309'); }
+      document.body.removeChild(ta);
+    });
 }
 
 /* -------------------------------------------------------
@@ -196,68 +576,120 @@ function renderContacts(c1Name, c1Phone, c2Name, c2Phone) {
    ------------------------------------------------------- */
 
 function copyShareText() {
+  const d = profiles[activeProfileId]?.data || emptyData();
   const sevMap = { mild: 'Mild', moderat: 'Moderat', alvorlig: 'ALVORLIG', livstruende: '⚠️ LIVSTRUENDE' };
 
   const lines = [
     '======== ALLERGIPAS ========',
-    val('childName') ? `Navn:      ${val('childName')}${val('childAge') ? ', ' + val('childAge') : ''}` : null,
-    val('severity')  ? `Alvorlighed: ${sevMap[val('severity')] || val('severity')}` : null,
-    val('allergies') ? `Allergi:   ${val('allergies')}` : null,
-    val('exposure')  ? `Eksponering: ${val('exposure')}` : null,
-    val('symptoms')  ? `Symptomer: ${val('symptoms')}` : null,
+    d.childName ? `Navn: ${d.childName}${d.childAge ? ', ' + d.childAge : ''}` : null,
+    d.severity  ? `Alvorlighed: ${sevMap[d.severity] || d.severity}` : null,
+    d.allergies ? `Allergi: ${d.allergies}` : null,
+    d.exposure  ? `Eksponering: ${d.exposure}` : null,
+    d.symptoms  ? `Symptomer: ${d.symptoms}` : null,
     '',
-    val('emergencyInstructions') ? '--- NØDINSTRUKTIONER ---\n' + val('emergencyInstructions') : null,
+    '--- NØDINSTRUKTIONER ---',
+    d.emergencyInstructions || null,
     '',
-    val('medicine')         ? `Medicin:   ${val('medicine')}` : null,
-    val('medicineLocation') ? `Medicin ligger: ${val('medicineLocation')}` : null,
-    val('safeFood')         ? `Sikker mad: ${val('safeFood')}` : null,
+    d.medicine         ? `Medicin: ${d.medicine}` : null,
+    d.medicineLocation ? `Medicin ligger: ${d.medicineLocation}` : null,
+    d.safeFood         ? `Sikker mad: ${d.safeFood}` : null,
     '',
     '--- KONTAKT ---',
-    (val('contact1Name') || val('contact1Phone'))
-      ? `${val('contact1Name') || 'Kontakt 1'}: ${val('contact1Phone') || '–'}` : null,
-    (val('contact2Name') || val('contact2Phone'))
-      ? `${val('contact2Name') || 'Kontakt 2'}: ${val('contact2Phone') || '–'}` : null,
-    val('notes') ? `\nEkstra noter:\n${val('notes')}` : null,
+    (d.contact1Name || d.contact1Phone) ? `${d.contact1Name || 'Kontakt 1'}: ${d.contact1Phone || '–'}` : null,
+    (d.contact2Name || d.contact2Phone) ? `${d.contact2Name || 'Kontakt 2'}: ${d.contact2Phone || '–'}` : null,
+    d.notes ? `\nEkstra: ${d.notes}` : null,
     '',
     'Allergipasset erstatter ikke lægefaglig rådgivning.',
     '============================',
-  ]
-  .filter(l => l !== null)
-  .join('\n')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
+  ].filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 
   navigator.clipboard.writeText(lines)
     .then(() => showToast('📋 Tekst kopieret til udklipsholder', '#2C4A7C'))
-    .catch(() => {
-      // Fallback til execCommand for ældre browsere
-      const ta = document.createElement('textarea');
-      ta.value = lines;
-      ta.style.cssText = 'position:fixed;opacity:0;top:-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); showToast('📋 Tekst kopieret', '#2C4A7C'); }
-      catch { showToast('⚠️ Kopiering mislykkedes', '#B45309'); }
-      document.body.removeChild(ta);
-    });
+    .catch(() => showToast('⚠️ Kopiering mislykkedes', '#B45309'));
 }
 
 /* -------------------------------------------------------
-   TOAST-BESKED
+   GEM / RYDNING
    ------------------------------------------------------- */
 
-let toastTimer = null;
+function saveData() {
+  if (activeProfileId && profiles[activeProfileId]) {
+    profiles[activeProfileId].data = readForm();
+  }
+  saveStorage();
+  showToast('✓ Allergipas gemt', '#16A34A');
+}
 
-function showToast(message, color = '#16A34A') {
-  const toast = document.getElementById('save-toast');
-  if (!toast) return;
+function clearForm() {
+  const name = profiles[activeProfileId]?.data?.childName || 'dette allergipas';
+  if (!confirm(`Er du sikker på, at du vil rydde formularen for "${name}"?\nAlt data på denne profil slettes.`)) return;
+  const freshData = emptyData();
+  if (activeProfileId && profiles[activeProfileId]) {
+    profiles[activeProfileId].data = freshData;
+  }
+  fillForm(freshData);
+  saveStorage();
+  updatePreview();
+  updateQR();
+  showToast('Formular ryddet', '#64748B');
+}
 
-  toast.textContent = message;
-  toast.style.background = color;
-  toast.classList.add('visible');
+/* -------------------------------------------------------
+   VIEW-MODE – åbn delt pas fra URL (?view=)
+   ------------------------------------------------------- */
 
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('visible'), 2800);
+function loadFromShareUrl() {
+  const params  = new URLSearchParams(location.search);
+  const encoded = params.get('view');
+  if (!encoded) return false;
+
+  try {
+    const data = JSON.parse(decodeURIComponent(atob(encoded)));
+    window._viewData = data;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function enterViewMode() {
+  isViewMode = true;
+  document.body.classList.add('view-mode');
+  document.getElementById('view-banner')?.classList.remove('hidden');
+  document.getElementById('site-footer')?.classList.remove('hidden');
+  // Skjul del-knapper i view-mode
+  document.getElementById('share-panel')?.classList.add('hidden');
+  document.getElementById('live-badge')?.classList.add('hidden');
+  updatePreview();
+}
+
+/* -------------------------------------------------------
+   TOAST
+   ------------------------------------------------------- */
+
+let _toastTimer = null;
+function showToast(msg, color = '#16A34A') {
+  const el = document.getElementById('save-toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.background = color;
+  el.classList.add('visible');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('visible'), 3000);
+}
+
+/* -------------------------------------------------------
+   MODE TABS
+   ------------------------------------------------------- */
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active);
+  });
+  updatePreview();
 }
 
 /* -------------------------------------------------------
@@ -266,47 +698,73 @@ function showToast(message, color = '#16A34A') {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Sæt standard nødinstruktioner inden indlæsning fra localStorage
-  const emergField = document.getElementById('emergencyInstructions');
-  if (emergField) emergField.value = DEFAULT_EMERGENCY;
+  // 1. Tjek for view-mode (delt link)
+  if (loadFromShareUrl()) {
+    enterViewMode();
+    return; // resten af init er unødvendig i view-mode
+  }
 
-  // Indlæs evt. gemte data (overskriver standard)
-  loadData();
+  // 2. Indlæs data (eller migrer fra v1, eller opret tomt)
+  const loaded = loadStorage();
+  if (!loaded || Object.keys(profiles).length === 0) {
+    if (!migrateV1()) {
+      // Opret første profil
+      createProfile('');
+    }
+  }
 
-  // Første preview-render
+  // Sørg for aktiv profil peger på noget gyldigt
+  if (!activeProfileId || !profiles[activeProfileId]) {
+    activeProfileId = Object.keys(profiles)[0];
+  }
+
+  // 3. Udfyld formular
+  fillForm(profiles[activeProfileId].data);
+
+  // 4. Render profil-bar
+  renderProfileBar();
+
+  // 5. Første preview + QR
   updatePreview();
+  updateQR();
 
-  // Live-opdatering ved hvert tastetryk / ændring
+  // 6. Live-opdatering ved input
   FIELD_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('input',  updatePreview);
-    el.addEventListener('change', updatePreview);
+    el.addEventListener('input',  onFieldChange);
+    el.addEventListener('change', onFieldChange);
   });
 
-  // Knapper – formular
-  document.getElementById('btn-save')?.addEventListener('click', saveData);
-  document.getElementById('btn-copy')?.addEventListener('click', copyShareText);
-  document.getElementById('btn-print')?.addEventListener('click', () => window.print());
-  document.getElementById('btn-clear')?.addEventListener('click', clearData);
+  // 7. Mode tabs
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+  });
 
-  // Knapper – header (genveje)
-  document.getElementById('btn-header-save')?.addEventListener('click', saveData);
-  document.getElementById('btn-header-print')?.addEventListener('click', () => window.print());
+  // 8. Knapper – formular
+  document.getElementById('btn-save')?.addEventListener('click',  saveData);
+  document.getElementById('btn-copy')?.addEventListener('click',  copyShareText);
+  document.getElementById('btn-print')?.addEventListener('click', () => window.print());
+  document.getElementById('btn-clear')?.addEventListener('click', clearForm);
+
+  // 9. Knapper – header
+  document.getElementById('btn-header-save')?.addEventListener('click',  saveData);
+  document.getElementById('btn-header-share')?.addEventListener('click', copyShareLink);
+
+  // 10. Del-link
+  document.getElementById('btn-copy-link')?.addEventListener('click', copyShareLink);
 
 });
 
 /* -------------------------------------------------------
    TODO – fremtidige features:
 
-   [ ] QR-kode generering (f.eks. via qrcode.js)
-   [ ] Offentlig delingslink (kræver backend / Firebase)
-   [ ] Flere børneprofiler (faner / dropdown)
-   [ ] Udløbspåmindelse for EpiPen / medicin
-   [ ] Sprogskift: Dansk / Engelsk
-   [ ] Restaurant-tilstand (forenklet visning)
-   [ ] Skole/SFO-tilstand (med ekstra info)
-   [ ] Fødselsdags-tilstand (compact version til events)
+   [ ] Firebase Firestore: kortere del-URL + cloud sync
+   [ ] QR-download som billede (canvas.toBlob)
    [ ] PDF-eksport (html2pdf.js)
-   [ ] Backup / eksporter til JSON-fil
+   [ ] Rejsemode: oversæt til EN / DE / ES
+   [ ] Madpakke-safe liste (egne mærker/produkter)
+   [ ] Push-notifikation om medicinudløb (Service Worker)
+   [ ] Multiple kontaktpersoner (dynamisk tilføjelse)
+   [ ] Profil-eksport / import som JSON-fil
    ------------------------------------------------------- */
