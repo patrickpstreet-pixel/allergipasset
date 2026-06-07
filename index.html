@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Opret et digitalt og printbart allergipas til dit barn. Perfekt til skole, SFO, klub, bedsteforældre og legeaftaler.">
+  <title>Allergipasset – Digitalt allergipas til børn</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ================================================
+       HEADER – sticky, vises på alle skærme
+       ================================================ -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">🛡️</span>
+        <div class="brand-text">
+          <span class="brand-name">Allergipasset</span>
+          <span class="brand-tagline">Digitalt allergipas til børn</span>
+        </div>
+      </div>
+      <div class="header-btns">
+        <button id="btn-header-save" class="btn btn--nav-solid" aria-label="Gem allergipas">Gem</button>
+        <button id="btn-header-print" class="btn btn--nav-ghost" aria-label="Print allergipas">Print</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================================================
+       MAIN
+       ================================================ -->
+  <main class="site-main">
+    <div class="container">
+
+      <!-- Intro -->
+      <section class="intro-section">
+        <p class="intro-text">
+          Lav et tydeligt allergipas med allergier, symptomer, medicin, kontaktpersoner og nødvejledning.
+          Perfekt til skole, SFO, klub, bedsteforældre og legeaftaler.
+        </p>
+        <a href="#preview-section" class="jump-link">Se forhåndsvisning ↓</a>
+      </section>
+
+      <!-- 2-kolonner: formular + preview -->
+      <div class="app-grid">
+
+        <!-- ========== FORMULAR ========== -->
+        <section class="col-form" aria-label="Udfyld allergipas">
+          <h2 class="col-heading">Opret allergipas</h2>
+          <form id="allergy-form" novalidate>
+
+            <!-- BARNETS OPLYSNINGER -->
+            <div class="card" role="group" aria-labelledby="lbl-child">
+              <h3 class="card-title" id="lbl-child">
+                <span aria-hidden="true">👤</span> Barnets oplysninger
+              </h3>
+              <div class="field-row">
+                <div class="field">
+                  <label for="childName">Barnets navn</label>
+                  <input type="text" id="childName" placeholder="Fulde navn" autocomplete="name">
+                </div>
+                <div class="field field--narrow">
+                  <label for="childAge">Alder</label>
+                  <input type="text" id="childAge" placeholder="7 år">
+                </div>
+              </div>
+            </div>
+
+            <!-- ALLERGI -->
+            <div class="card card--warning" role="group" aria-labelledby="lbl-allergy">
+              <h3 class="card-title" id="lbl-allergy">
+                <span aria-hidden="true">⚠️</span> Allergi
+              </h3>
+              <div class="field">
+                <label for="allergies">Primær allergi / allergier</label>
+                <input type="text" id="allergies" placeholder="f.eks. Jordnødder, æg, laktose, hvede">
+              </div>
+              <div class="field">
+                <label for="severity">Alvorlighed</label>
+                <select id="severity">
+                  <option value="">Vælg alvorlighed</option>
+                  <option value="mild">Mild</option>
+                  <option value="moderat">Moderat</option>
+                  <option value="alvorlig">Alvorlig</option>
+                  <option value="livstruende">Livstruende</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="exposure">Reagerer barnet på spor / kontakt / luftbåren eksponering?</label>
+                <textarea id="exposure" rows="3" placeholder="Beskriv om barnet reagerer på spor, berøring eller luftbåren eksponering..."></textarea>
+              </div>
+            </div>
+
+            <!-- SYMPTOMER & SIKKER MAD -->
+            <div class="card" role="group" aria-labelledby="lbl-symptoms">
+              <h3 class="card-title" id="lbl-symptoms">
+                <span aria-hidden="true">🩺</span> Symptomer & Sikker mad
+              </h3>
+              <div class="field">
+                <label for="symptoms">Typiske symptomer</label>
+                <textarea id="symptoms" rows="3" placeholder="f.eks. Nældefeber, hævelse, opkast, vejrtrækningsbesvær, anafylaksi..."></textarea>
+              </div>
+              <div class="field">
+                <label for="safeFood">Sikker mad / sikre snacks</label>
+                <textarea id="safeFood" rows="3" placeholder="f.eks. Frugt, grøntsager, ris, kartofler, hjemmelavet mad fra os..."></textarea>
+              </div>
+            </div>
+
+            <!-- MEDICIN -->
+            <div class="card card--info" role="group" aria-labelledby="lbl-medicine">
+              <h3 class="card-title" id="lbl-medicine">
+                <span aria-hidden="true">💊</span> Medicin
+              </h3>
+              <div class="field">
+                <label for="medicine">Medicin barnet har med</label>
+                <textarea id="medicine" rows="3" placeholder="f.eks. EpiPen 0,15 mg, Cetirizin antihistamin, Betnesol stikpiller..."></textarea>
+              </div>
+              <div class="field">
+                <label for="medicineLocation">Hvor ligger medicinen?</label>
+                <input type="text" id="medicineLocation" placeholder="f.eks. Den røde etui i skoletasken, forreste lomme">
+              </div>
+            </div>
+
+            <!-- KONTAKTPERSONER -->
+            <div class="card" role="group" aria-labelledby="lbl-contacts">
+              <h3 class="card-title" id="lbl-contacts">
+                <span aria-hidden="true">📞</span> Kontaktpersoner
+              </h3>
+              <div class="contact-pair">
+                <div class="field">
+                  <label for="contact1Name">Kontaktperson 1 – navn</label>
+                  <input type="text" id="contact1Name" placeholder="Navn på forælder/værge" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label for="contact1Phone">Telefon</label>
+                  <input type="tel" id="contact1Phone" placeholder="+45 12 34 56 78" inputmode="tel">
+                </div>
+              </div>
+              <div class="contact-pair contact-pair--last">
+                <div class="field">
+                  <label for="contact2Name">Kontaktperson 2 – navn</label>
+                  <input type="text" id="contact2Name" placeholder="Navn på forælder/pårørende" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label for="contact2Phone">Telefon</label>
+                  <input type="tel" id="contact2Phone" placeholder="+45 12 34 56 78" inputmode="tel">
+                </div>
+              </div>
+            </div>
+
+            <!-- NØDINSTRUKTIONER -->
+            <div class="card card--emergency" role="group" aria-labelledby="lbl-emergency">
+              <h3 class="card-title" id="lbl-emergency">
+                <span aria-hidden="true">🚨</span> Nødinstruktioner
+              </h3>
+              <p class="field-hint">Tilpas til barnets specifikke handlingsplan om nødvendigt.</p>
+              <div class="field">
+                <label for="emergencyInstructions" class="sr-only">Nødinstruktioner</label>
+                <textarea id="emergencyInstructions" rows="9"></textarea>
+              </div>
+            </div>
+
+            <!-- EKSTRA NOTER -->
+            <div class="card" role="group" aria-labelledby="lbl-notes">
+              <h3 class="card-title" id="lbl-notes">
+                <span aria-hidden="true">📝</span> Ekstra noter
+              </h3>
+              <div class="field">
+                <label for="notes" class="sr-only">Ekstra noter</label>
+                <textarea id="notes" rows="4" placeholder="Andre vigtige oplysninger, særlige hensyn, tidligere reaktioner..."></textarea>
+              </div>
+            </div>
+
+            <!-- HANDLINGSKNAPPER -->
+            <div class="action-grid" role="group" aria-label="Handlinger">
+              <button type="button" id="btn-save" class="btn btn--primary">
+                <span aria-hidden="true">💾</span> Gem allergipas
+              </button>
+              <button type="button" id="btn-copy" class="btn btn--secondary">
+                <span aria-hidden="true">📋</span> Kopiér delingstekst
+              </button>
+              <button type="button" id="btn-print" class="btn btn--secondary">
+                <span aria-hidden="true">🖨️</span> Print allergipas
+              </button>
+              <button type="button" id="btn-clear" class="btn btn--danger">
+                <span aria-hidden="true">🗑️</span> Ryd formular
+              </button>
+            </div>
+
+          </form>
+        </section>
+
+        <!-- ========== PREVIEW ========== -->
+        <section class="col-preview" id="preview-section" aria-label="Forhåndsvisning">
+          <div class="preview-sticky-wrap">
+
+            <div class="preview-col-header">
+              <h2 class="col-heading">Forhåndsvisning</h2>
+              <span class="live-badge" aria-hidden="true">LIVE</span>
+            </div>
+
+            <!-- PASKORTET -->
+            <article class="passport" id="passport-card">
+
+              <!-- Passets top / header -->
+              <header class="passport-top">
+                <div class="passport-logo-line" aria-hidden="true">🛡️ ALLERGIPAS</div>
+                <div class="passport-identity">
+                  <div class="passport-name-row">
+                    <span id="prev-name" class="passport-name">Barnets navn</span>
+                    <span id="prev-age" class="passport-age"></span>
+                  </div>
+                  <span id="prev-severity" class="sev-badge sev--empty">Alvorlighed ikke angivet</span>
+                </div>
+              </header>
+
+              <!-- Passets krop -->
+              <div class="passport-body">
+
+                <div class="ps ps--allergy">
+                  <div class="ps-label">⚠️ Allergi</div>
+                  <div id="prev-allergies" class="ps-content">–</div>
+                </div>
+
+                <div class="ps">
+                  <div class="ps-label">🔬 Spor / kontakt / luftbåren reaktion</div>
+                  <div id="prev-exposure" class="ps-content">–</div>
+                </div>
+
+                <div class="ps">
+                  <div class="ps-label">🩺 Symptomer</div>
+                  <div id="prev-symptoms" class="ps-content">–</div>
+                </div>
+
+                <div class="ps ps--emergency">
+                  <div class="ps-label">🚨 Nødinstruktioner</div>
+                  <div id="prev-emergency" class="ps-content">–</div>
+                </div>
+
+                <div class="ps ps--medicine">
+                  <div class="ps-label">💊 Medicin</div>
+                  <div id="prev-medicine" class="ps-content">–</div>
+                  <div id="prev-med-loc-row" class="ps-med-loc">
+                    <span class="ps-med-loc-label">📍 Ligger i:</span>
+                    <span id="prev-med-loc"></span>
+                  </div>
+                </div>
+
+                <div class="ps ps--safe">
+                  <div class="ps-label">✅ Sikker mad & snacks</div>
+                  <div id="prev-safe-food" class="ps-content">–</div>
+                </div>
+
+                <div class="ps">
+                  <div class="ps-label">📞 Kontakt straks ved reaktion</div>
+                  <div id="prev-contacts" class="prev-contact-cards">
+                    <span class="prev-contact-empty">Ingen kontakter angivet</span>
+                  </div>
+                </div>
+
+                <div class="ps" id="prev-notes-row">
+                  <div class="ps-label">📝 Ekstra noter</div>
+                  <div id="prev-notes" class="ps-content">–</div>
+                </div>
+
+                <div class="passport-disclaimer">
+                  Allergipasset erstatter ikke lægefaglig rådgivning. Følg altid barnets officielle
+                  behandlingsplan og kontakt læge/112 ved alvorlige symptomer.
+                </div>
+
+              </div><!-- /passport-body -->
+            </article><!-- /passport -->
+
+            <!-- Toast bekræftelse -->
+            <div id="save-toast" class="toast" aria-live="polite"></div>
+
+          </div><!-- /preview-sticky-wrap -->
+        </section>
+
+      </div><!-- /app-grid -->
+    </div><!-- /container -->
+  </main>
+
+  <!-- ================================================
+       FOOTER
+       ================================================ -->
+  <footer class="site-footer">
+    <div class="container">
+      <p>Allergipasset &copy; 2024 &mdash; Et gratis værktøj til familier med allergibørn</p>
+      <p class="footer-note">Erstatter ikke lægefaglig rådgivning &mdash; kontakt altid læge/112 ved alvorlige symptomer.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
