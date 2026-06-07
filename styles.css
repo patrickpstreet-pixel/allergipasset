@@ -725,12 +725,27 @@ textarea {
   margin-top: 12px;
   box-shadow: var(--shadow-sm);
 }
-.share-panel-qr canvas {
+.qr-img {
   display: block;
-  width: 90px !important;
-  height: 90px !important;
+  width: 100px;
+  height: 100px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
+  background: var(--bg);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Shown when QR library hasn't loaded yet */
+.qr-img.qr-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+  border: 1.5px dashed var(--border-mid);
 }
 .share-panel-info { flex: 1; min-width: 0; }
 .share-panel-title { font-weight: 700; font-size: 0.9375rem; color: var(--text); margin-bottom: 3px; }

@@ -526,37 +526,79 @@ function renderRestaurantMode(d) {
 
 function buildShareUrl(data) {
   try {
-    const json    = JSON.stringify(data);
-    const encoded = btoa(encodeURIComponent(json));
-    const base    = location.origin + location.pathname.replace(/\/[^/]*$/, '/') ;
+    // Kun ikke-tomme felter – og spring standard-nødinstruktioner over for at holde URL kort
+    const compact = {};
+    Object.entries(data).forEach(([k, v]) => {
+      const trimmed = typeof v === 'string' ? v.trim() : v;
+      if (!trimmed) return;
+      if (k === 'emergencyInstructions' && trimmed === DEFAULT_EMERGENCY.trim()) return;
+      compact[k] = trimmed;
+    });
+
+    const encoded = btoa(encodeURIComponent(JSON.stringify(compact)));
+
+    // Byg base-URL – virker både lokalt (file://) og på GitHub Pages
+    let base;
+    if (location.protocol === 'file:') {
+      // Lokal brug: opbyg sti fra href
+      base = location.href.split('?')[0].replace(/\/[^/]*$/, '/');
+    } else {
+      base = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
+    }
+
     return `${base}index.html?view=${encoded}`;
-  } catch { return location.href; }
+  } catch (e) {
+    console.warn('buildShareUrl fejl:', e);
+    return '';
+  }
 }
 
-function updateQR() {
-  const canvas = document.getElementById('qr-canvas');
-  if (!canvas) return;
+async function updateQR() {
+  const imgEl = document.getElementById('qr-img');
+  if (!imgEl) return;
 
   const data = profiles[activeProfileId]?.data || emptyData();
   const url  = buildShareUrl(data);
 
-  if (typeof QRCode !== 'undefined') {
-    QRCode.toCanvas(canvas, url, {
-      width: 90,
-      margin: 1,
-      color: { dark: '#1A2B4A', light: '#FFFFFF' }
-    }, err => {
-      if (err) console.warn('QR fejl:', err);
-    });
+  // Gem URL til kopiér-knap
+  imgEl.dataset.shareUrl = url;
+
+  // Vis placeholder hvis bibliotek ikke er indlæst endnu
+  if (typeof QRCode === 'undefined') {
+    imgEl.src = '';
+    imgEl.alt = 'Kopiér link nedenfor';
+    imgEl.classList.add('qr-loading');
+    return;
   }
 
-  // Gem URL på canvas-elementet til brug i copyShareLink
-  canvas.dataset.shareUrl = url;
+  imgEl.classList.remove('qr-loading');
+
+  try {
+    const dataUrl = await QRCode.toDataURL(url || 'https://allergipasset.dk', {
+      width: 200,
+      margin: 1,
+      color: { dark: '#1A2B4A', light: '#FFFFFF' },
+      errorCorrectionLevel: 'L' // lavest = mindste QR = bedst scanbar ved 100px
+    });
+    imgEl.src    = dataUrl;
+    imgEl.alt    = 'QR-kode til allergipas';
+  } catch (err) {
+    console.warn('QR generering fejlede:', err);
+    imgEl.src = '';
+    imgEl.alt = 'Brug kopiér link';
+    imgEl.classList.add('qr-loading');
+  }
 }
 
 function copyShareLink() {
-  const canvas  = document.getElementById('qr-canvas');
-  const url     = canvas?.dataset.shareUrl || buildShareUrl(profiles[activeProfileId]?.data || {});
+  const imgEl = document.getElementById('qr-img');
+  const url   = imgEl?.dataset.shareUrl || buildShareUrl(profiles[activeProfileId]?.data || {});
+
+  if (!url) {
+    showToast('⚠️ Intet link at kopiere endnu', '#B45309');
+    return;
+  }
+
   navigator.clipboard.writeText(url)
     .then(() => showToast('📎 Link kopieret til udklipsholder', '#2C4A7C'))
     .catch(() => {
@@ -754,6 +796,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 10. Del-link
   document.getElementById('btn-copy-link')?.addEventListener('click', copyShareLink);
 
+});
+
+// Generer QR igen når siden og CDN-scriptet er fuldt indlæst
+// (QRCode biblioteket kan godt ankomme efter DOMContentLoaded)
+window.addEventListener('load', () => {
+  if (!isViewMode) updateQR();
 });
 
 /* -------------------------------------------------------
